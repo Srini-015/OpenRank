@@ -7,8 +7,18 @@ import { serializeAuthUser } from "../utils/serializeAuthUser.js";
 
 const clientUrl = process.env.CLIENT_URL?.trim() || "http://localhost:5173";
 
+const joinClientPath = (basePath, pathname) => {
+  const normalizedBasePath = basePath.replace(/\/+$/, "");
+  const normalizedPath = pathname === "/" ? "/" : `/${pathname.replace(/^\/+/, "")}`;
+
+  return `${normalizedBasePath}${normalizedPath}` || "/";
+};
+
 const buildClientRedirect = (pathname, errorCode) => {
-  const redirectUrl = new URL(pathname, clientUrl);
+  const redirectUrl = new URL(clientUrl);
+  redirectUrl.pathname = joinClientPath(redirectUrl.pathname, pathname);
+  redirectUrl.search = "";
+  redirectUrl.hash = "";
 
   if (errorCode) {
     redirectUrl.searchParams.set("error", errorCode);
