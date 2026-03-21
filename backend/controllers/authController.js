@@ -3,6 +3,7 @@ import {
   getSessionCookieSettings,
   SESSION_COOKIE_NAME,
 } from "../config/session.js";
+import { isGitHubOAuthConfigured } from "../config/passport.js";
 import { serializeAuthUser } from "../utils/serializeAuthUser.js";
 
 const clientUrl = process.env.CLIENT_URL?.trim() || "http://localhost:5173";
@@ -27,29 +28,42 @@ const buildClientRedirect = (pathname, errorCode) => {
   return redirectUrl.toString();
 };
 
-export const githubLogin = passport.authenticate("github", {
-  scope: ["read:user", "user:email"],
-  state: true,
-});
+const redirectToLoginError = (res, errorCode) =>
+  res.redirect(buildClientRedirect("/login", errorCode));
+
+export const githubLogin = (req, res, next) => {
+  if (!isGitHubOAuthConfigured) {
+    return redirectToLoginError(res, "github_oauth_unavailable");
+  }
+
+  return passport.authenticate("github", {
+    scope: ["read:user", "user:email"],
+    state: true,
+  })(req, res, next);
+};
 
 export const githubCallback = (req, res, next) => {
+  if (!isGitHubOAuthConfigured) {
+    return redirectToLoginError(res, "github_oauth_unavailable");
+  }
+
   passport.authenticate("github", (error, user) => {
     if (error) {
-      return res.redirect(buildClientRedirect("/login", "github_auth_failed"));
+      return redirectToLoginError(res, "github_auth_failed");
     }
 
     if (!user) {
-      return res.redirect(buildClientRedirect("/login", "github_auth_failed"));
+      return redirectToLoginError(res, "github_auth_failed");
     }
 
     return req.logIn(user, (loginError) => {
       if (loginError) {
-        return res.redirect(buildClientRedirect("/login", "session_error"));
+        return redirectToLoginError(res, "session_error");
       }
 
       return req.session.save((sessionError) => {
         if (sessionError) {
-          return res.redirect(buildClientRedirect("/login", "session_error"));
+          return redirectToLoginError(res, "session_error");
         }
 
         return res.redirect(buildClientRedirect("/dashboard"));

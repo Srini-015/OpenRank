@@ -3,15 +3,26 @@ import passport from "passport";
 import GitHubStrategy from "passport-github2";
 import User from "../models/User.js";
 
-const requireEnv = (name) => {
+const getConfiguredEnv = (name) => {
   const value = process.env[name]?.trim();
 
-  if (value) {
+  if (
+    value &&
+    !value.startsWith("your-") &&
+    !value.startsWith("replace-with-")
+  ) {
     return value;
   }
 
-  throw new Error(`${name} is required to enable GitHub OAuth.`);
+  return "";
 };
+
+const githubClientId = getConfiguredEnv("GITHUB_CLIENT_ID");
+const githubClientSecret = getConfiguredEnv("GITHUB_CLIENT_SECRET");
+
+export const isGitHubOAuthConfigured = Boolean(
+  githubClientId && githubClientSecret,
+);
 
 const resolveCallbackUrl = () => {
   const callbackUrl = process.env.CALLBACK_URL?.trim();
@@ -27,54 +38,60 @@ const resolveCallbackUrl = () => {
 const pickEmail = (emails = []) =>
   emails.find((item) => item?.primary)?.value ?? emails[0]?.value ?? "";
 
-passport.use(
-  new GitHubStrategy(
-    {
-      clientID: requireEnv("GITHUB_CLIENT_ID"),
-      clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
-      callbackURL: resolveCallbackUrl(),
-      scope: ["read:user", "user:email"],
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        const email = pickEmail(profile.emails);
-        const existingUser = await User.findOne({ githubId: profile.id });
-        const update = {
-          username: profile.username || profile.displayName || "github-user",
-          avatar: profile.photos?.[0]?.value ?? "",
-          profileUrl: profile.profileUrl ?? "",
-          lastLoginAt: new Date(),
-          "integrations.githubConnected": true,
-          "integrations.disconnectedAt": null,
-        };
+if (isGitHubOAuthConfigured) {
+  passport.use(
+    new GitHubStrategy(
+      {
+        clientID: githubClientId,
+        clientSecret: githubClientSecret,
+        callbackURL: resolveCallbackUrl(),
+        scope: ["read:user", "user:email"],
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = pickEmail(profile.emails);
+          const existingUser = await User.findOne({ githubId: profile.id });
+          const update = {
+            username: profile.username || profile.displayName || "github-user",
+            avatar: profile.photos?.[0]?.value ?? "",
+            profileUrl: profile.profileUrl ?? "",
+            lastLoginAt: new Date(),
+            "integrations.githubConnected": true,
+            "integrations.disconnectedAt": null,
+          };
 
-        if (!existingUser?.displayName) {
-          update.displayName =
-            profile.displayName || profile.username || "GitHub User";
+          if (!existingUser?.displayName) {
+            update.displayName =
+              profile.displayName || profile.username || "GitHub User";
+          }
+
+          if (!existingUser?.email) {
+            update.email = email;
+          }
+
+          const user = await User.findOneAndUpdate(
+            { githubId: profile.id },
+            { $set: update },
+            {
+              upsert: true,
+              new: true,
+              runValidators: true,
+              setDefaultsOnInsert: true,
+            },
+          );
+
+          return done(null, user);
+        } catch (error) {
+          return done(error, null);
         }
-
-        if (!existingUser?.email) {
-          update.email = email;
-        }
-
-        const user = await User.findOneAndUpdate(
-          { githubId: profile.id },
-          { $set: update },
-          {
-            upsert: true,
-            new: true,
-            runValidators: true,
-            setDefaultsOnInsert: true,
-          },
-        );
-
-        return done(null, user);
-      } catch (error) {
-        return done(error, null);
-      }
-    },
-  ),
-);
+      },
+    ),
+  );
+} else {
+  console.warn(
+    "GitHub OAuth is disabled. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to enable it.",
+  );
+}
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
