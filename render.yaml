@@ -3,7 +3,7 @@ services:
     name: openrank-backend
     runtime: node
     plan: free
-    rootDir: openrank-backend
+    rootDir: backend
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /

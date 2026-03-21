@@ -2,16 +2,27 @@
 
 OpenRank is a GitHub contribution analytics app with:
 
-- a Vite/React frontend in the project root
-- a Node.js/Express backend in `openrank-backend`
+- a Vite/React frontend in `frontend/`
+- a Node.js/Express backend in `backend/`
+
+## Project structure
+
+```text
+.
+|-- backend/
+|-- frontend/
+|-- .github/
+|-- package.json
+`-- render.yaml
+```
 
 ## Frontend deployment
 
 The frontend is configured for GitHub Pages through:
 
 - `.github/workflows/deploy.yml`
-- `vite.config.js`
-- `scripts/create404.mjs`
+- `frontend/vite.config.js`
+- `frontend/scripts/create404.mjs`
 
 Set the GitHub Actions secret `VITE_API_BASE_URL` to your deployed backend URL before publishing.
 
@@ -23,7 +34,7 @@ Render steps:
 
 1. Open Render and choose `New +` -> `Blueprint`.
 2. Select this GitHub repository.
-3. Render will detect `render.yaml` and create the `openrank-backend` web service.
+3. Render will detect `render.yaml` and create the `openrank-backend` web service from `backend/`.
 4. Fill in the prompted secret values.
 5. Deploy the service and copy the final backend URL.
 
@@ -54,6 +65,7 @@ Important:
 Frontend:
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -61,7 +73,14 @@ npm run dev
 Backend:
 
 ```bash
-cd openrank-backend
+cd backend
 npm install
 npm run dev
+```
+
+From the repo root you can also use:
+
+```bash
+npm run dev:frontend
+npm run dev:backend
 ```
