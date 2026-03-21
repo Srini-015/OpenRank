@@ -5,6 +5,7 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import passport from "passport";
 import "./config/passport.js";
+import { isAllowedClientOrigin, resolveAllowedClientUrls } from "./config/clientUrls.js";
 import { sessionMiddleware } from "./config/session.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -17,7 +18,6 @@ import settingsRoutes from "./routes/settingsRoutes.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
-const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
 
 // DB
 connectDB();
@@ -26,7 +26,23 @@ connectDB();
 app.set("trust proxy", process.env.NODE_ENV === "production" ? 1 : 0);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cors({ origin: clientUrl, credentials: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (!origin || isAllowedClientOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(
+        new Error(
+          `Origin ${origin} is not allowed by CORS. Allowed frontend URLs: ${resolveAllowedClientUrls().join(", ")}`,
+        ),
+      );
+    },
+  }),
+);
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());

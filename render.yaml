@@ -10,8 +10,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: CLIENT_URL
-        value: https://srini-015.github.io/OpenRank/
+      - key: CLIENT_URLS
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: MONGO_URI

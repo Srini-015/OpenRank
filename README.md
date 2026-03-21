@@ -42,7 +42,7 @@ Required backend environment variables:
 
 - `NODE_ENV=production`
 - `MONGO_URI=<your production MongoDB connection string>`
-- `CLIENT_URL=https://srini-015.github.io/OpenRank/`
+- `CLIENT_URLS=<comma-separated frontend URLs that are allowed to call the API>`
 - `SESSION_SECRET=<long random secret>`
 - `GITHUB_CLIENT_ID=<your GitHub OAuth app client id>`
 - `GITHUB_CLIENT_SECRET=<your GitHub OAuth app client secret>`
@@ -55,10 +55,17 @@ After the backend is live:
 2. Set the repository secret `VITE_API_BASE_URL=https://<your-backend-domain>`.
 3. Push a new commit so GitHub Pages rebuilds the frontend with the live backend URL.
 
+Examples:
+
+- GitHub Pages: `CLIENT_URLS=https://srini-015.github.io/OpenRank/`
+- Vercel: `CLIENT_URLS=https://your-app.vercel.app`
+- Multiple frontends: `CLIENT_URLS=https://your-app.vercel.app,https://srini-015.github.io/OpenRank/,http://localhost:5173`
+
 Important:
 
-- `CLIENT_URL` must stay `https://srini-015.github.io/OpenRank/`
-- The backend now preserves the `/OpenRank/` subpath during OAuth redirects, which is required for GitHub Pages
+- Include every frontend origin that should be allowed to call the backend
+- The backend now redirects GitHub OAuth back to whichever allowed frontend started the login flow
+- If `/login` shows `We couldn't verify your current session.`, the current frontend URL is usually missing from `CLIENT_URLS`
 
 ## Local development
 
