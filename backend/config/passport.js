@@ -21,14 +21,14 @@ const githubClientId = getConfiguredEnv("GITHUB_CLIENT_ID");
 const githubClientSecret = getConfiguredEnv("GITHUB_CLIENT_SECRET");
 
 export const isGitHubOAuthConfigured = Boolean(
-  githubClientId && githubClientSecret, 
+  githubClientId && githubClientSecret
 );
 
 const resolveCallbackUrl = () => {
-  const callbackUrl = process.env.CALLBACK_URL?.trim();
+  const callbackURL = process.env.GITHUB_CALLBACK_URL?.trim();
 
-  if (callbackUrl) {
-    return callbackUrl;
+  if (callbackURL) {
+    return callbackURL;
   }
 
   const port = process.env.PORT || 4000;
