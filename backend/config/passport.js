@@ -21,7 +21,7 @@ const githubClientId = getConfiguredEnv("GITHUB_CLIENT_ID");
 const githubClientSecret = getConfiguredEnv("GITHUB_CLIENT_SECRET");
 
 export const isGitHubOAuthConfigured = Boolean(
-  githubClientId && githubClientSecret,
+  githubClientId && githubClientSecret, 
 );
 
 const resolveCallbackUrl = () => {
@@ -74,7 +74,7 @@ if (isGitHubOAuthConfigured) {
             { $set: update },
             {
               upsert: true,
-              new: true,
+              returnDocument: "after",
               runValidators: true,
               setDefaultsOnInsert: true,
             },

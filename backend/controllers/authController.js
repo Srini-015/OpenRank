@@ -32,7 +32,7 @@ const redirectToLoginError = (req, res, errorCode, clientUrl = resolveRequestCli
 
 export const githubLogin = (req, res, next) => {
   if (!isGitHubOAuthConfigured) {
-    return redirectToLoginError(req, res, "github_oauth_unavailable");
+    return redirectToLoginError(req, res, "github_oauth_unavailable"); //false
   }
 
   if (req.session) {

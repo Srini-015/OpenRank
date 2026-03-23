@@ -64,7 +64,7 @@ class MongooseSessionStore extends session.Store {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: "after",
         setDefaultsOnInsert: true,
       },
     )
@@ -79,7 +79,7 @@ class MongooseSessionStore extends session.Store {
         expiresAt: getExpirationDate(sessionData),
         session: sessionData,
       },
-      { new: true },
+      { returnDocument: "after" },
     )
       .then(() => callback?.(null))
       .catch((error) => callback?.(error));

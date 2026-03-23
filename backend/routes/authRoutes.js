@@ -11,6 +11,9 @@ const router = express.Router();
 
 router.get("/github", githubLogin);
 router.get("/github/callback", githubCallback);
+// Compatibility aliases: accept `/oauth/github` paths as well
+router.get("/oauth/github", githubLogin);
+router.get("/oauth/github/callback", githubCallback);
 router.get("/me", ensureAuthenticated, getCurrentUser);
 router.post("/logout", logoutUser);
 
