@@ -25,7 +25,8 @@ export const isGitHubOAuthConfigured = Boolean(
 );
 
 const resolveCallbackUrl = () => {
-  const callbackURL = process.env.GITHUB_CALLBACK_URL?.trim();
+  const callbackURL =
+    process.env.GITHUB_CALLBACK_URL?.trim() || process.env.CALLBACK_URL?.trim();
 
   if (callbackURL) {
     return callbackURL;

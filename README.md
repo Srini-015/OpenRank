@@ -46,12 +46,14 @@ Required backend environment variables:
 - `SESSION_SECRET=<long random secret>`
 - `GITHUB_CLIENT_ID=<your GitHub OAuth app client id>`
 - `GITHUB_CLIENT_SECRET=<your GitHub OAuth app client secret>`
-- `CALLBACK_URL=https://<your-backend-domain>/auth/github/callback`
+- `GITHUB_CALLBACK_URL=https://<your-backend-domain>/auth/github/callback`
 - `GITHUB_API_TOKEN=<optional GitHub token for higher API limits>`
+
+`CALLBACK_URL` is still accepted as a legacy alias, but prefer `GITHUB_CALLBACK_URL` for new deployments.
 
 After the backend is live:
 
-1. Update the GitHub OAuth app callback URL to the same `CALLBACK_URL`.
+1. Update the GitHub OAuth app callback URL to the same `GITHUB_CALLBACK_URL`.
 2. Set the repository secret `VITE_API_BASE_URL=https://<your-backend-domain>`.
 3. Push a new commit so GitHub Pages rebuilds the frontend with the live backend URL.
 
