@@ -1,5 +1,9 @@
 import axios from "axios";
 import { serializeAuthUser } from "./serializeAuthUser.js";
+import {
+  getGitHubHeaders,
+  normalizeGitHubServiceError,
+} from "./githubApi.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const HEATMAP_WEEKS = 18;
@@ -12,20 +16,6 @@ const WEEKLY_CHART_WEEKS = 12;
 const MONTHLY_CHART_MONTHS = 6;
 const MAX_REPOSITORY_PAGES = 6;
 const LEADERBOARD_STALE_MS = 15 * 60 * 1000;
-
-const getGitHubHeaders = () => {
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "openrank-dashboard",
-  };
-  const apiToken = process.env.GITHUB_API_TOKEN?.trim();
-
-  if (apiToken) {
-    headers.Authorization = `Bearer ${apiToken}`;
-  }
-
-  return headers;
-};
 
 const formatDateKey = (date) => date.toISOString().slice(0, 10);
 
@@ -558,19 +548,27 @@ const buildRecentActivity = (events) =>
     };
   });
 
-const fetchGitHubUserProfile = async (username) => {
+const fetchGitHubUserProfile = async (user) => {
+  const username = user?.username;
   const response = await axios.get(`${GITHUB_API_BASE_URL}/users/${username}`, {
-    headers: getGitHubHeaders(),
+    headers: getGitHubHeaders({
+      user,
+      userAgent: "openrank-dashboard",
+    }),
   });
 
   return response.data;
 };
 
-const fetchGitHubEvents = async (username) => {
+const fetchGitHubEvents = async (user) => {
+  const username = user?.username;
   const responses = await Promise.allSettled(
     Array.from({ length: MAX_EVENT_PAGES }, (_, index) =>
       axios.get(`${GITHUB_API_BASE_URL}/users/${username}/events/public`, {
-        headers: getGitHubHeaders(),
+        headers: getGitHubHeaders({
+          user,
+          userAgent: "openrank-dashboard",
+        }),
         params: {
           per_page: EVENTS_PER_PAGE,
           page: index + 1,
@@ -584,12 +582,16 @@ const fetchGitHubEvents = async (username) => {
     .flatMap((response) => response.value.data);
 };
 
-const fetchGitHubRepositories = async (username) => {
+const fetchGitHubRepositories = async (user) => {
+  const username = user?.username;
   const repositories = [];
 
   for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
     const response = await axios.get(`${GITHUB_API_BASE_URL}/users/${username}/repos`, {
-      headers: getGitHubHeaders(),
+      headers: getGitHubHeaders({
+        user,
+        userAgent: "openrank-dashboard",
+      }),
       params: {
         per_page: EVENTS_PER_PAGE,
         page,
@@ -788,12 +790,14 @@ export const syncUserLeaderboardMetrics = async (
   { includeDashboardAnalytics = false } = {},
 ) => {
   const user = serializeAuthUser(userDoc);
+  const cachedLeaderboard = userDoc?.leaderboard || {};
 
   if (!user.username) {
     return {
-      overview: buildFallbackOverview(user, userDoc?.leaderboard),
-      leaderboard: userDoc?.leaderboard || {},
+      overview: buildFallbackOverview(user, cachedLeaderboard),
+      leaderboard: cachedLeaderboard,
       synced: false,
+      syncMessage: "Missing GitHub username for the authenticated user.",
     };
   }
 
@@ -803,31 +807,49 @@ export const syncUserLeaderboardMetrics = async (
     repositoriesResult,
   ] =
     await Promise.allSettled([
-      fetchGitHubUserProfile(user.username),
-      fetchGitHubEvents(user.username),
-      fetchGitHubRepositories(user.username),
+      fetchGitHubUserProfile(userDoc),
+      fetchGitHubEvents(userDoc),
+      fetchGitHubRepositories(userDoc),
     ]);
 
-  if (profileResult.status !== "fulfilled") {
+  const firstFailedResult = [profileResult, eventsResult, repositoriesResult].find(
+    (result) => result.status !== "fulfilled",
+  );
+
+  if (firstFailedResult) {
+    const fallbackLeaderboard = {
+      ...cachedLeaderboard,
+    };
+
+    if (profileResult.status === "fulfilled") {
+      fallbackLeaderboard.repositoriesCount = getSafeNumber(
+        profileResult.value?.public_repos,
+      );
+      fallbackLeaderboard.followers = getSafeNumber(profileResult.value?.followers);
+      fallbackLeaderboard.following = getSafeNumber(profileResult.value?.following);
+    }
+
     return {
-      overview: buildFallbackOverview(user, userDoc?.leaderboard),
-      leaderboard: userDoc?.leaderboard || {},
+      overview: buildFallbackOverview(user, fallbackLeaderboard),
+      leaderboard: fallbackLeaderboard,
       synced: false,
+      syncMessage: normalizeGitHubServiceError(
+        firstFailedResult.reason,
+        "GitHub activity could not be loaded right now.",
+      ).message,
     };
   }
 
   const githubProfile = profileResult.value;
-  const githubEvents =
-    eventsResult.status === "fulfilled" ? eventsResult.value : [];
-  const githubRepositories =
-    repositoriesResult.status === "fulfilled" ? repositoriesResult.value : [];
+  const githubEvents = eventsResult.value;
+  const githubRepositories = repositoriesResult.value;
   const dailyCounts = buildDailyCounts(githubEvents);
   const leaderboard = buildLeaderboardSnapshot({
     dailyCounts,
     githubProfile,
     githubEvents,
     githubRepositories,
-    existingLeaderboard: userDoc?.leaderboard,
+    existingLeaderboard: cachedLeaderboard,
   });
 
   if (typeof userDoc?.set === "function" && typeof userDoc?.save === "function") {
@@ -855,5 +877,6 @@ export const syncUserLeaderboardMetrics = async (
       : buildFallbackOverview(user, leaderboard),
     leaderboard,
     synced: true,
+    syncMessage: "",
   };
 };

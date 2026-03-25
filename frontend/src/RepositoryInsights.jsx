@@ -7,6 +7,7 @@ import {
 } from "react";
 import { motion } from "framer-motion";
 import { LogoMark, MoonIcon, SunIcon } from "./components/Icons";
+import { getApiErrorMessage } from "./lib/apiError";
 import { logoutSession } from "./services/auth";
 import { fetchRepositories } from "./services/repositories";
 import { getAppHref, redirectTo } from "./lib/routes";
@@ -233,7 +234,12 @@ export default function RepositoryInsights() {
           return;
         }
 
-        setError("Unable to load repository insights right now.");
+        setError(
+          getApiErrorMessage(
+            requestError,
+            "Unable to load repository insights right now.",
+          ),
+        );
         setData(EMPTY_STATE);
       } finally {
         if (!ignore) {

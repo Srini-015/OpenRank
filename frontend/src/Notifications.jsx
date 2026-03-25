@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { LogoMark, MoonIcon, SunIcon } from "./components/Icons";
+import { getApiErrorMessage } from "./lib/apiError";
 import { logoutSession } from "./services/auth";
 import {
   fetchNotifications,
@@ -209,7 +210,12 @@ export default function Notifications() {
           return;
         }
 
-        setError("Unable to load GitHub notifications right now.");
+        setError(
+          getApiErrorMessage(
+            requestError,
+            "Unable to load GitHub notifications right now.",
+          ),
+        );
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -282,7 +288,12 @@ export default function Notifications() {
         return;
       }
 
-      setError("Unable to update the notification state.");
+      setError(
+        getApiErrorMessage(
+          requestError,
+          "Unable to update the notification state.",
+        ),
+      );
     } finally {
       setPendingIds((current) => current.filter((id) => id !== item.id));
     }
@@ -454,7 +465,12 @@ export default function Notifications() {
                     redirectTo("/login");
                     return;
                   }
-                  setError("Unable to refresh notifications right now.");
+                  setError(
+                    getApiErrorMessage(
+                      requestError,
+                      "Unable to refresh notifications right now.",
+                    ),
+                  );
                 } finally {
                   setRefreshing(false);
                 }

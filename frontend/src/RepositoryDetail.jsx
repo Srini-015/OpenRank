@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { LogoMark, MoonIcon, SunIcon } from "./components/Icons";
+import { getApiErrorMessage } from "./lib/apiError";
 import { logoutSession } from "./services/auth";
 import { fetchRepositoryDetails } from "./services/repositories";
 import { getAppHref, redirectTo } from "./lib/routes";
@@ -172,7 +173,12 @@ export default function RepositoryDetail({ repoName }) {
         if (requestError?.response?.status === 404) {
           setError("Repository not found for the authenticated GitHub account.");
         } else {
-          setError("Unable to load repository analytics right now.");
+          setError(
+            getApiErrorMessage(
+              requestError,
+              "Unable to load repository analytics right now.",
+            ),
+          );
         }
 
         setData(EMPTY_DETAIL);

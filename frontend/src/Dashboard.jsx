@@ -8,6 +8,7 @@ import Heatmap from "./components/dashboard/Heatmap";
 import ActivityFeed from "./components/dashboard/ActivityFeed";
 import { fetchCurrentUser, logoutSession } from "./services/auth";
 import { fetchDashboardOverview } from "./services/dashboard";
+import { getApiErrorMessage } from "./lib/apiError";
 import { getAppHref, redirectTo } from "./lib/routes";
 
 const THEME_KEY = "openrank-theme";
@@ -232,6 +233,10 @@ const EMPTY_OVERVIEW = {
   },
   heatmap: createEmptyHeatmap(),
   lastSyncAt: "",
+  syncStatus: {
+    synced: true,
+    message: "",
+  },
 };
 
 export default function Dashboard() {
@@ -292,7 +297,12 @@ export default function Dashboard() {
           return;
         }
 
-        setError("Unable to load your authenticated session.");
+        setError(
+          getApiErrorMessage(
+            userResult.reason,
+            "Unable to load your authenticated session.",
+          ),
+        );
         setLoading(false);
         return;
       }
@@ -300,14 +310,24 @@ export default function Dashboard() {
       setUserProfile(userResult.value);
 
       if (overviewResult.status === "fulfilled") {
-        setOverview({
+        const nextOverview = {
           ...EMPTY_OVERVIEW,
           ...overviewResult.value,
-        });
+        };
+        setOverview(nextOverview);
+        setError(
+          nextOverview.syncStatus?.synced === false
+            ? nextOverview.syncStatus.message ||
+                "We signed you in, but GitHub activity could not be loaded right now."
+            : "",
+        );
       } else {
         setOverview(EMPTY_OVERVIEW);
         setError(
-          "We signed you in, but GitHub activity could not be loaded right now.",
+          getApiErrorMessage(
+            overviewResult.reason,
+            "We signed you in, but GitHub activity could not be loaded right now.",
+          ),
         );
       }
 

@@ -144,6 +144,11 @@ const userSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
+    githubAccessToken: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     username: {
       type: String,
       required: true,

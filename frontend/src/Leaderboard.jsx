@@ -7,6 +7,7 @@ import {
 } from "react";
 import { motion } from "framer-motion";
 import { LogoMark, MoonIcon, SunIcon } from "./components/Icons";
+import { getApiErrorMessage } from "./lib/apiError";
 import { logoutSession } from "./services/auth";
 import { fetchLeaderboard } from "./services/leaderboard";
 import { getAppHref, redirectTo } from "./lib/routes";
@@ -306,7 +307,12 @@ export default function Leaderboard() {
           return;
         }
 
-        setError("Unable to load the leaderboard right now.");
+        setError(
+          getApiErrorMessage(
+            requestError,
+            "Unable to load the leaderboard right now.",
+          ),
+        );
         setBoard(EMPTY_BOARD);
       } finally {
         if (!ignore) {

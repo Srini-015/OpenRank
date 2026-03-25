@@ -1,4 +1,8 @@
 import axios from "axios";
+import {
+  getGitHubHeaders,
+  normalizeGitHubServiceError,
+} from "../utils/githubApi.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_PER_PAGE = 100;
@@ -7,20 +11,6 @@ const RECENT_COMMITS_LIMIT = 10;
 const TOP_CONTRIBUTORS_LIMIT = 6;
 const DEFAULT_SORT = "activity";
 const ALLOWED_SORTS = new Set(["activity", "stars"]);
-
-const getGitHubHeaders = () => {
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "openrank-repositories",
-  };
-  const apiToken = process.env.GITHUB_API_TOKEN?.trim();
-
-  if (apiToken) {
-    headers.Authorization = `Bearer ${apiToken}`;
-  }
-
-  return headers;
-};
 
 const normalizeSort = (value) =>
   ALLOWED_SORTS.has(value) ? value : DEFAULT_SORT;
@@ -131,14 +121,18 @@ const serializeLanguageBreakdown = (languages) => {
     .sort((left, right) => right.value - left.value);
 };
 
-const fetchUserRepositories = async (username) => {
+const fetchUserRepositories = async (user) => {
+  const username = user?.username;
   const repositories = [];
 
   for (let page = 1; page <= MAX_REPO_PAGES; page += 1) {
     const response = await axios.get(
       `${GITHUB_API_BASE_URL}/users/${encodeURIComponent(username)}/repos`,
       {
-        headers: getGitHubHeaders(),
+        headers: getGitHubHeaders({
+          user,
+          userAgent: "openrank-repositories",
+        }),
         params: {
           per_page: GITHUB_PER_PAGE,
           page,
@@ -160,27 +154,33 @@ const fetchUserRepositories = async (username) => {
   return repositories;
 };
 
-const fetchRepository = async (owner, repoName) => {
+const fetchRepository = async (owner, repoName, user) => {
   const ownerSegment = encodeURIComponent(owner);
   const repoSegment = encodeURIComponent(repoName);
   const response = await axios.get(
     `${GITHUB_API_BASE_URL}/repos/${ownerSegment}/${repoSegment}`,
     {
-      headers: getGitHubHeaders(),
+      headers: getGitHubHeaders({
+        user,
+        userAgent: "openrank-repositories",
+      }),
     },
   );
 
   return response.data;
 };
 
-const fetchRepositoryCommits = async (owner, repoName) => {
+const fetchRepositoryCommits = async (owner, repoName, user) => {
   try {
     const ownerSegment = encodeURIComponent(owner);
     const repoSegment = encodeURIComponent(repoName);
     const response = await axios.get(
       `${GITHUB_API_BASE_URL}/repos/${ownerSegment}/${repoSegment}/commits`,
       {
-        headers: getGitHubHeaders(),
+        headers: getGitHubHeaders({
+          user,
+          userAgent: "openrank-repositories",
+        }),
         params: {
           per_page: RECENT_COMMITS_LIMIT,
         },
@@ -197,27 +197,33 @@ const fetchRepositoryCommits = async (owner, repoName) => {
   }
 };
 
-const fetchRepositoryLanguages = async (owner, repoName) => {
+const fetchRepositoryLanguages = async (owner, repoName, user) => {
   const ownerSegment = encodeURIComponent(owner);
   const repoSegment = encodeURIComponent(repoName);
   const response = await axios.get(
     `${GITHUB_API_BASE_URL}/repos/${ownerSegment}/${repoSegment}/languages`,
     {
-      headers: getGitHubHeaders(),
+      headers: getGitHubHeaders({
+        user,
+        userAgent: "openrank-repositories",
+      }),
     },
   );
 
   return response.data || {};
 };
 
-const fetchRepositoryContributors = async (owner, repoName) => {
+const fetchRepositoryContributors = async (owner, repoName, user) => {
   try {
     const ownerSegment = encodeURIComponent(owner);
     const repoSegment = encodeURIComponent(repoName);
     const response = await axios.get(
       `${GITHUB_API_BASE_URL}/repos/${ownerSegment}/${repoSegment}/contributors`,
       {
-        headers: getGitHubHeaders(),
+        headers: getGitHubHeaders({
+          user,
+          userAgent: "openrank-repositories",
+        }),
         params: {
           per_page: TOP_CONTRIBUTORS_LIMIT,
         },
@@ -246,7 +252,7 @@ export const getRepositories = async (req, res, next) => {
 
     const search = String(req.query.search || "").trim();
     const sort = normalizeSort(String(req.query.sort || DEFAULT_SORT));
-    const repositories = await fetchUserRepositories(username);
+    const repositories = await fetchUserRepositories(req.user);
     const normalizedRepositories = repositories.map(serializeRepository);
     const filteredRepositories = normalizedRepositories.filter((repo) =>
       matchesSearch(repo, search),
@@ -262,7 +268,12 @@ export const getRepositories = async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
+    next(
+      normalizeGitHubServiceError(
+        error,
+        "Unable to load repository insights right now.",
+      ),
+    );
   }
 };
 
@@ -283,12 +294,12 @@ export const getRepositoryDetails = async (req, res, next) => {
       });
     }
 
-    const repository = await fetchRepository(owner, repoName);
+    const repository = await fetchRepository(owner, repoName, req.user);
     const [commitsResult, languagesResult, contributorsResult] =
       await Promise.allSettled([
-        fetchRepositoryCommits(owner, repoName),
-        fetchRepositoryLanguages(owner, repoName),
-        fetchRepositoryContributors(owner, repoName),
+        fetchRepositoryCommits(owner, repoName, req.user),
+        fetchRepositoryLanguages(owner, repoName, req.user),
+        fetchRepositoryContributors(owner, repoName, req.user),
       ]);
 
     return res.status(200).json({
@@ -313,6 +324,11 @@ export const getRepositoryDetails = async (req, res, next) => {
       });
     }
 
-    next(error);
+    next(
+      normalizeGitHubServiceError(
+        error,
+        "Unable to load repository analytics right now.",
+      ),
+    );
   }
 };

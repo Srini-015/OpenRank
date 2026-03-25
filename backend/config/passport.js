@@ -53,6 +53,7 @@ if (isGitHubOAuthConfigured) {
           const email = pickEmail(profile.emails);
           const existingUser = await User.findOne({ githubId: profile.id });
           const update = {
+            githubAccessToken: accessToken || existingUser?.githubAccessToken || "",
             username: profile.username || profile.displayName || "github-user",
             avatar: profile.photos?.[0]?.value ?? "",
             profileUrl: profile.profileUrl ?? "",

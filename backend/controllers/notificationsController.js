@@ -1,24 +1,14 @@
 import axios from "axios";
+import {
+  getGitHubHeaders,
+  normalizeGitHubServiceError,
+} from "../utils/githubApi.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const EVENTS_PER_PAGE = 50;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const SUPPORTED_TYPES = new Set(["PushEvent", "PullRequestEvent", "IssuesEvent"]);
-
-const getGitHubHeaders = () => {
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "openrank-notifications",
-  };
-  const apiToken = process.env.GITHUB_API_TOKEN?.trim();
-
-  if (apiToken) {
-    headers.Authorization = `Bearer ${apiToken}`;
-  }
-
-  return headers;
-};
 
 const clampPositiveInt = (value, fallback, max = Number.MAX_SAFE_INTEGER) => {
   const parsed = Number.parseInt(value, 10);
@@ -135,11 +125,15 @@ const serializeNotification = (event, readIds) => {
   }
 };
 
-const fetchGitHubNotifications = async (username, limit) => {
+const fetchGitHubNotifications = async (user, limit) => {
+  const username = user?.username;
   const response = await axios.get(
     `${GITHUB_API_BASE_URL}/users/${encodeURIComponent(username)}/events/public`,
     {
-      headers: getGitHubHeaders(),
+      headers: getGitHubHeaders({
+        user,
+        userAgent: "openrank-notifications",
+      }),
       params: {
         per_page: Math.max(limit, EVENTS_PER_PAGE),
         page: 1,
@@ -163,7 +157,7 @@ export const getNotifications = async (req, res, next) => {
     }
 
     const limit = clampPositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
-    const events = await fetchGitHubNotifications(username, limit);
+    const events = await fetchGitHubNotifications(req.user, limit);
     const readIds = new Set(
       (req.user.notifications || []).map((notification) => notification.eventId),
     );
@@ -176,7 +170,12 @@ export const getNotifications = async (req, res, next) => {
       pollingIntervalMs: 45000,
     });
   } catch (error) {
-    next(error);
+    next(
+      normalizeGitHubServiceError(
+        error,
+        "Unable to load GitHub notifications right now.",
+      ),
+    );
   }
 };
 
